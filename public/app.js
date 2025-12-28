@@ -75,19 +75,64 @@
     document.getElementById('empty-state')
   );
 
+  const filterBtns = /** @type {NodeListOf<HTMLButtonElement>} */ (
+    document.querySelectorAll('button[data-priority-filter]')
+  );
+
   // State
   let tasks = loadTasks();
+  /** @type {null | 'low' | 'medium' | 'high'} */
+  let activePriorityFilter = null;
+
+  function setPriorityFilter(next) {
+    activePriorityFilter = next;
+    updateFilterUi();
+    render();
+  }
+
+  function updateFilterUi() {
+    if (!filterBtns || !filterBtns.length) return;
+    filterBtns.forEach((btn) => {
+      const value = btn.dataset.priorityFilter;
+      const isActive =
+        (value === 'all' && activePriorityFilter === null) ||
+        value === activePriorityFilter;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    });
+  }
+
+  function getVisibleTasks() {
+    if (!activePriorityFilter) return tasks;
+    return tasks.filter((t) => t.priority === activePriorityFilter);
+  }
 
   // Render
   function render() {
     list.innerHTML = '';
+    const visible = getVisibleTasks();
+
     if (!tasks.length) {
+      emptyState.textContent = 'No tasks yet. Add your first task above.';
       emptyState.style.display = 'block';
       return;
     }
+
+    if (!visible.length) {
+      const label =
+        activePriorityFilter === 'high'
+          ? 'High'
+          : activePriorityFilter === 'medium'
+          ? 'Medium'
+          : 'Low';
+      emptyState.textContent = `No ${label} priority tasks. Click All to show everything.`;
+      emptyState.style.display = 'block';
+      return;
+    }
+
     emptyState.style.display = 'none';
 
-    tasks
+    [...visible]
       .sort((a, b) => {
         // Not-done first, then by priority (high->low), then newest first
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
@@ -249,5 +294,25 @@
   });
 
   // Initial paint
+  filterBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const value = btn.dataset.priorityFilter;
+      if (!value || value === 'all') {
+        setPriorityFilter(null);
+        return;
+      }
+
+      // Toggle off when clicking the same active filter
+      if (activePriorityFilter === value) {
+        setPriorityFilter(null);
+        return;
+      }
+      /** @type {'low' | 'medium' | 'high'} */
+      const next = value;
+      setPriorityFilter(next);
+    });
+  });
+
+  updateFilterUi();
   render();
 })();
